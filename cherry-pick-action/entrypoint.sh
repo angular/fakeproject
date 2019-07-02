@@ -1,7 +1,4 @@
 #!/bin/sh -l
-GITHUB_EVENT_PATH="/event.json"
-
-EVENT_ACTION=$(cat $GITHUB_EVENT_PATH | jq '.action')
 DIFF_URL=$(cat $GITHUB_EVENT_PATH | jq '.pull_request.diff_url')
 
 if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
@@ -26,20 +23,37 @@ fi
 
 cd "$GITHUB_WORKSPACE";
 
-if [ -n "$PATCH_BRANCH"]; then
-
-fi
-git checkout master;
-
 curl -L -s $DIFF_URL > /tmp/pr.diff;
 
-git apply --check /tmp/pr.diff 2>&1;
-if [ $? -eq 0 ]; then
-  result=true;
+if [ -n "$PATCH_BRANCH" ]; then
+  git checkout $PATCH_BRANCH;
+  git apply --check /tmp/pr.diff 2>&1;
+  if [ $? -eq 0 ]; then
+    CAN_APPLY_PATCH_BRANCH=true;
+  fi
 fi
 
+
+if [ -n "$MINOR_BRANCH" ]; then
+  git checkout $MINOR_BRANCH;
+  git apply --check /tmp/pr.diff 2>&1;
+  if [ $? -eq 0 ]; then
+    CAN_APPLY_MINOR_BRANCH=true;
+  fi
+fi
+
+
+if [ -n "$MAJOR_BRANCH" ]; then
+  git checkout $MAJOR_BRANCH;
+  git apply --check /tmp/pr.diff 2>&1;
+  if [ $? -eq 0 ]; then
+    CAN_APPLY_MAJOR_BRANCH=true;
+  fi
+fi
+
+
 # Communicate the result of the check via the exit code.
-if [ "$result" = "true" ]; then
+if [ "$CAN_APPLY_PATCH_BRANCH" = "true" ]; then
   exit 0;
 else
   exit 1;
